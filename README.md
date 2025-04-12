@@ -41,9 +41,11 @@ A Telegram bot for performing basic security scans and network reconnaissance ta
    cd scanparadis
 
 2. Install requirements      
+    ```bashs
     pip install -r requirements.txt
 
 3.  Install tools
+    ```bash
     sudo apt install nmap wafw00f whatweb dnsutils whois
     git clone https://github.com/NetSPI/DefaultCreds-cheat-sheet.git /opt/DefaultCreds-cheat-sheet
 
