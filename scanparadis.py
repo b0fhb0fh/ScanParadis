@@ -80,8 +80,8 @@ def get_text_messages(message):
 ########################################################################################################################
 def get_target_and_run(message, proc="nslookup"):
   global scan_target
-# remove RCE tail and mask  
-  scan_target = message.text.strip().split("/")[0].split(";")[0].split("|")[0].split("&")[0]
+# remove RCE tail and network mask  
+  scan_target = message.text.strip().split(";")[0].split("|")[0].split("&")[0]
 
   if ( check_target_ip_or_domain(scan_target) or check_target_url(scan_target) or proc == "creds"):
     run_utils(message, proc)
