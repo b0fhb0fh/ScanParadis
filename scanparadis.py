@@ -25,7 +25,6 @@ except json.JSONDecodeError:
 
 # Конфигурация (обязательные параметры)
 TELEGRAM_BOT_TOKEN = config["TELEGRAM_BOT_TOKEN"]
-MY_USER_ID = config["MY_USER_ID"]
 
 bot =  telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
