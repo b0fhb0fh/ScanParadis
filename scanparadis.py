@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
+#
 # ScanParadis v1.10
+#
 
 import telebot
 import subprocess
