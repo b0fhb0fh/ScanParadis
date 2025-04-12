@@ -40,9 +40,9 @@ A Telegram bot for performing basic security scans and network reconnaissance ta
    git clone https://github.com/yourusername/scanparadis.git
    cd scanparadis
 
-2.   pip install -r requirements.txt
+2.      pip install -r requirements.txt
 
-3.   sudo apt install nmap wafw00f whatweb dnsutils whois
+3.      sudo apt install nmap wafw00f whatweb dnsutils whois
 
 4.  git clone https://github.com/NetSPI/DefaultCreds-cheat-sheet.git /opt/DefaultCreds-cheat-sheet
 
