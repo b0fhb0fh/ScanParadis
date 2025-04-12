@@ -40,20 +40,18 @@ A Telegram bot for performing basic security scans and network reconnaissance ta
    git clone https://github.com/yourusername/scanparadis.git
    cd scanparadis
 
-2.      pip install -r requirements.txt
+2. Install requirements      
+    pip install -r requirements.txt
 
-3.      sudo apt install nmap wafw00f whatweb dnsutils whois
+3.  Install tools
+    sudo apt install nmap wafw00f whatweb dnsutils whois
+    git clone https://github.com/NetSPI/DefaultCreds-cheat-sheet.git /opt/DefaultCreds-cheat-sheet
 
-4.  git clone https://github.com/NetSPI/DefaultCreds-cheat-sheet.git /opt/DefaultCreds-cheat-sheet
-
-5.  Create config.json with your Telegram bot token:
-    {
-       "TELEGRAM_BOT_TOKEN": "YOUR_TELEGRAM_BOT_TOKEN_HERE"
-    }
+4.  Update config.json with your Telegram bot token
 
 ## Usage
 
-python3 scanparadis.py
+    python3 scanparadis.py
 
 ## Available Commands
 
