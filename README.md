@@ -57,15 +57,15 @@ python3 scanparadis.py
 
 ## Available Commands
 
-/start - Initial greeting
-/help - Show all available commands
-/IPv4scan - Scan IPv4 address for open ports
-/IPv6scan - Scan IPv6 address for open ports
-/wafcheck - Check for WAF presence
-/whatweb - Identify web technologies
-/nslookup - Perform DNS resolution
-/whois - Get WHOIS information
-/creds - Search for default credentials
+    /start - Initial greeting
+    /help - Show all available commands
+    /IPv4scan - Scan IPv4 address for open ports
+    /IPv6scan - Scan IPv6 address for open ports
+    /wafcheck - Check for WAF presence
+    /whatweb - Identify web technologies
+    /nslookup - Perform DNS resolution
+    /whois - Get WHOIS information
+    /creds - Search for default credentials
 
 ## Security Note
 
