@@ -37,8 +37,8 @@ A Telegram bot for performing basic security scans and network reconnaissance ta
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/scanparadis.git
-   cd scanparadis
+   git clone https://github.com/b0fhb0fh/ScanParadis.git
+   cd ScanParadis
 
 2. Install requirements      
     ```bashs
