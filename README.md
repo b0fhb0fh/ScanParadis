@@ -47,7 +47,8 @@ A Telegram bot for performing basic security scans and network reconnaissance ta
 3.  Install tools
     ```bash
     sudo apt install nmap wafw00f whatweb dnsutils whois
-    git clone https://github.com/NetSPI/DefaultCreds-cheat-sheet.git /opt/DefaultCreds-cheat-sheet
+    cd /opt
+    git clone https://github.com/inebski/DefaultCreds-cheat-sheet.git
 
 4.  Update config.json with your Telegram bot token
 
