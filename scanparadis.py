@@ -13,7 +13,7 @@ import socket
 import os, sys
 from telebot import util
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
-
+from openai import OpenAI
 
 # Загрузка конфигурации
 try:
@@ -28,11 +28,25 @@ except json.JSONDecodeError:
 
 # Конфигурация (обязательные параметры)
 TELEGRAM_BOT_TOKEN = config["TELEGRAM_BOT_TOKEN"]
+ZAP_PATH = config.get("ZAP_PATH", "/opt/ZAP_2.16.1/zap-2.16.1.jar")
+OPENAI_API_KEY = config.get("OPENAI_API_KEY", "")
+OPENAI_BASE_URL = config.get("OPENAI_BASE_URL", "https://api.proxyapi.ru/deepseek")
+OPENAI_MODEL = config.get("OPENAI_MODEL", "deepseek-chat")
+SCAN_RESULTS_DIR = config.get("SCAN_RESULTS_DIR", "scanresults")
+
+# Создаем директорию для результатов сканирования, если ее нет
+os.makedirs(SCAN_RESULTS_DIR, exist_ok=True)
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 scan_target = ''
 menu_state = {}  # Для отслеживания состояния меню пользователей
+
+# Инициализация OpenAI клиента
+ai_client = OpenAI(
+    api_key=OPENAI_API_KEY,
+    base_url=OPENAI_BASE_URL,
+)
 
 # Создаем главное меню
 def create_main_menu():
@@ -75,9 +89,10 @@ def create_web_menu():
     
     btn1 = KeyboardButton('wafcheck')
     btn2 = KeyboardButton('whatweb')
-    btn3 = KeyboardButton('Назад ↩️')
+    btn3 = KeyboardButton('ZAP')
+    btn4 = KeyboardButton('Назад ↩️')
     
-    markup.add(btn1, btn2, btn3)
+    markup.add(btn1, btn2, btn3, btn4)
     return markup
 
 # Меню Others
@@ -150,6 +165,10 @@ def handle_all_messages(message):
             bot.send_message(chat_id, "Укажите url в формате https://www.example.com", 
                             reply_markup=ReplyKeyboardRemove())
             bot.register_next_step_handler(message, get_target_and_run, "whatweb")
+        elif message.text == 'ZAP':
+            bot.send_message(chat_id, "Укажите url в формате https://www.example.com для сканирования ZAP", 
+                            reply_markup=ReplyKeyboardRemove())
+            bot.register_next_step_handler(message, get_target_and_run, "zap")
     
     # Обработка подменю Others
     elif menu_state.get(chat_id) == 'others':
@@ -181,6 +200,10 @@ def get_target_and_run(message, proc="nslookup"):
 def run_utils(message, proc):
     bot.send_message(message.chat.id, "Придется немного подождать...")
     
+    if proc == "zap":
+        run_zap_scan(message)
+        return
+    
     commands = {
         "nmap4": ["/usr/bin/nmap", "-sS", "-F", scan_target],
         "nmap6": ["/usr/bin/nmap", "-sS", "-F", "-6", scan_target],
@@ -210,6 +233,65 @@ def run_utils(message, proc):
     menu_state[message.chat.id] = 'main'
     bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
 
+def run_zap_scan(message):
+    try:
+        # Генерируем уникальное имя файла
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_url = re.sub(r'[^a-zA-Z0-9]', '_', scan_target)[:50]
+        user_info = f"{message.from_user.id}_{message.from_user.username or 'unknown'}_{message.from_user.first_name or ''}_{message.from_user.last_name or ''}"
+        report_filename = f"zap_{safe_url}_{user_info}_{timestamp}.json"
+        report_path = os.path.join(SCAN_RESULTS_DIR, report_filename)
+
+        bot.send_message(message.chat.id, "Запускаю сканирование ZAP. Это может занять несколько минут...")
+        
+        # Запускаем ZAP с JSON-отчетом
+        zap_command = [
+            "java", "-jar", ZAP_PATH,
+            "-cmd",
+            "-quickurl", scan_target,
+            "-quickout", report_path
+        ]
+        
+        process = subprocess.Popen(zap_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate()
+        
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, zap_command, stderr)
+        
+        # Читаем JSON отчет
+        with open(report_path, "r") as report_file:
+            zap_report = json.load(report_file)
+        
+        # Отправляем уведомление о завершении
+        bot.send_message(message.chat.id, f"Сканирование завершено. Технический отчет сохранен. Ждите аналитический AI-отчет.")
+        
+        # Генерируем AI анализ
+        ai_report = ask_ai(json.dumps(zap_report, indent=2))
+        
+        # Отправляем AI отчет частями
+        splitted_text = util.smart_split(ai_report, chars_per_string=3000)
+        for text in splitted_text:
+            bot.send_message(message.chat.id, text)
+        
+        # Логируем действие
+        print_log(message, f"ZAP scan completed. Report: {report_filename}")
+        
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Ошибка при выполнении ZAP сканирования: {e.stderr}"
+        bot.send_message(message.chat.id, error_msg)
+        print_log(message, f"ZAP scan failed: {error_msg}")
+    except json.JSONDecodeError as e:
+        error_msg = "Ошибка при обработке JSON отчета ZAP"
+        bot.send_message(message.chat.id, error_msg)
+        print_log(message, f"JSON decode error: {str(e)}")
+    except Exception as e:
+        error_msg = f"Неожиданная ошибка: {str(e)}"
+        bot.send_message(message.chat.id, error_msg)
+        print_log(message, f"Unexpected error: {str(e)}")
+    finally:
+        menu_state[message.chat.id] = 'main'
+        bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
+
 def check_target_url(target):
     result = re.match(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)', target)
     return bool(result)
@@ -235,7 +317,7 @@ def print_help(message):
 <b>Главное меню:</b>
 <code>Recon 🕵️</code> - инструменты разведки (nslookup, whois)
 <code>Scan 🔍</code> - сканирование сетей (IPv4, IPv6)
-<code>Web 🌐</code> - веб-инструменты (wafcheck, whatweb)
+<code>Web 🌐</code> - веб-инструменты (wafcheck, whatweb, ZAP)
 <code>Others 📚</code> - другие инструменты (creds)
 
 <b>Инструкция:</b>
