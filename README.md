@@ -1,8 +1,8 @@
 
 # ScanParadis v2.1 - Telegram Bot for Security Scanning
 
-![ScanParadis Logo](https://via.placeholder.com/150x50?text=ScanParadis) 
-*(Логотип можно добавить позже)*
+![ScanParadis](telegram-peer-photo-size-2-5208655390349314733-1-0-0.jpg) 
+
 
 ## 📌 Описание
 
