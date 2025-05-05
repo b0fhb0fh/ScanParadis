@@ -1,3 +1,13 @@
 {
-    "TELEGRAM_BOT_TOKEN": "YOUR_BOT_TOKEN_HERE"
+    "TELEGRAM_BOT_TOKEN": "YOUR_TELEGRAM_BOT_TOKEN",
+    "ZAP_PATH": "/opt/ZAP_2.16.1/zap-2.16.1.jar",
+    "OPENAI_API_KEY": "YOUR_OPENAI_API_KEY",
+    "OPENAI_BASE_URL": "https://api.proxyapi.ru/deepseek",
+    "OPENAI_MODEL": "deepseek-chat",
+    "SCAN_RESULTS_DIR": "scanresults",
+    "EPSS_API_URL": "https://api.first.org/data/v1/epss",
+    "NVD_API_URL": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+    "EPSS_SIGNIFICANT_THRESHOLD": 0.1,
+    "NMAP_TIMEOUT": 600,
+    "ADVANCED_SCAN_TIMEOUT": 1200
 }

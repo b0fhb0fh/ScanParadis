@@ -1,79 +1,137 @@
-# ScanParadis v1.10 - Telegram Security Scanner Bot
+```markdown
+# ScanParadis v2.1 - Telegram Bot for Security Scanning
 
-![Python](https://img.shields.io/badge/Python-3.x-blue.svg)
-![Telegram](https://img.shields.io/badge/Telegram-Bot-green.svg)
+![ScanParadis Logo](https://via.placeholder.com/150x50?text=ScanParadis) 
+*(Логотип можно добавить позже)*
 
-A Telegram bot for performing basic security scans and network reconnaissance tasks.
+## 📌 Описание
 
-## Features
+ScanParadis - это многофункциональный Telegram бот для проведения легальных проверок безопасности. Бот предоставляет набор инструментов для разведки, сканирования сетей, анализа веб-приложений и проверки уязвимостей.
 
-- **Port Scanning**:
-  - IPv4 port scanning (`/IPv4scan`)
-  - IPv6 port scanning (`/IPv6scan`)
-- **Web Analysis**:
-  - WAF detection (`/wafcheck`)
-  - Web server fingerprinting (`/whatweb`)
-- **Network Recon**:
-  - DNS resolution (`/nslookup`)
-  - WHOIS lookups (`/whois`)
-- **Security Checks**:
-  - Default credentials search (`/creds`)
+## 🌟 Основные возможности
 
-## Requirements
+- **Recon**: Инструменты разведки (nslookup, whois)
+- **Scan**: Сканирование сетей (IPv4, IPv6, Vulners)
+- **Web**: Анализ веб-приложений (wafcheck, whatweb, ZAP)
+- **Others**: Дополнительные инструменты (creds)
 
-- Python 3.x
-- Required Python packages:
-  - `pyTelegramBotAPI`
-  - `python-whois`
-- System utilities:
-  - `nmap`
-  - `wafw00f`
-  - `whatweb`
-  - `host` (dnsutils)
-  - `whois`
-  - DefaultCreds-cheat-sheet (for `/creds` command)
+## 🔧 Установка и настройка
 
-## Installation
+### Требования
+- Python 3.8+
+- Установленные зависимости: `pip install -r requirements.txt`
+- Доступ к API OpenAI (для AI-анализа)
+- Java (для работы ZAP)
+- Nmap с установленным скриптом vulners
 
-1. Clone this repository:
+### Установка
+1. Клонируйте репозиторий:
    ```bash
-   git clone https://github.com/b0fhb0fh/ScanParadis.git
-   cd ScanParadis
+   git clone https://github.com/yourusername/scanparadis.git
+   cd scanparadis
+   ```
 
-2. Install requirements      
-    ```bashs
-    pip install -r requirements.txt
+2. Установите зависимости:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3.  Install tools
-    ```bash
-    sudo apt install nmap wafw00f whatweb dnsutils whois
-    cd /opt
-    git clone https://github.com/inebski/DefaultCreds-cheat-sheet.git
+3. Настройте конфигурацию в файле `config.json`:
+   ```json
+   {
+       "TELEGRAM_BOT_TOKEN": "ваш_токен_бота",
+       "ZAP_PATH": "/путь/к/zap-2.16.1.jar",
+       "OPENAI_API_KEY": "ваш_api_key",
+       "OPENAI_BASE_URL": "https://api.proxyapi.ru/deepseek",
+       "OPENAI_MODEL": "deepseek-chat",
+       "SCAN_RESULTS_DIR": "scanresults",
+       "EPSS_API_URL": "https://api.first.org/data/v1/epss",
+       "NVD_API_URL": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+       "EPSS_SIGNIFICANT_THRESHOLD": 0.1,
+       "NMAP_TIMEOUT": 600,
+       "ADVANCED_SCAN_TIMEOUT": 1200
+   }
+   ```
 
-4.  Update config.json with your Telegram bot token
+4. Создайте директорию для результатов сканирования:
+   ```bash
+   mkdir scanresults
+   ```
 
-## Usage
+## 🚀 Запуск бота
+```bash
+python3 bot.py
+```
 
-    python3 scanparadis.py
+## 🛠 Команды и использование
 
-## Available Commands
+Основные команды доступны через меню:
+- `/start`, `/help` - Начало работы и справка
+- Главное меню:
+  - Recon 🕵️ - Инструменты разведки
+  - Scan 🔍 - Сканирование сетей
+  - Web 🌐 - Веб-инструменты
+  - Others 📚 - Другие инструменты
 
-    /start - Initial greeting
-    /help - Show all available commands
-    /IPv4scan - Scan IPv4 address for open ports
-    /IPv6scan - Scan IPv6 address for open ports
-    /wafcheck - Check for WAF presence
-    /whatweb - Identify web technologies
-    /nslookup - Perform DNS resolution
-    /whois - Get WHOIS information
-    /creds - Search for default credentials
+## 📊 Примеры использования
 
-## Security Note
+1. **Сканирование уязвимостей (Vulners)**:
+   - Выберите "Scan 🔍" → "Vulners"
+   - Введите IP-адрес или доменное имя
+   - Получите отчет с оценкой рисков
 
-This bot is intended for legal security testing only. Always obtain proper authorization before scanning any systems.
+2. **Анализ веб-приложения (ZAP)**:
+   - Выберите "Web 🌐" → "ZAP"
+   - Введите URL сайта
+   - Получите технический отчет и AI-анализ
 
-GNU General Public License v3.0
+3. **Проверка учетных данных (creds)**:
+   - Выберите "Others 📚" → "creds"
+   - Введите название вендора или ПО
+   - Получите информацию о стандартных учетных данных
 
-Disclaimer
+## 📁 Структура проекта
+```
+scanparadis/
+├── bot.py             # Основной код бота
+├── config.json        # Файл конфигурации
+├── requirements.txt   # Зависимости
+├── scanresults/       # Директория для результатов сканирования
+└── README.md          # Этот файл
+```
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. THE AUTHOR IS NOT RESPONSIBLE FOR ANY ILLEGAL USE OF THIS TOOL.
+## ⚠️ Важное предупреждение
+- Используйте бот только для легальных проверок
+- Получайте разрешение перед сканированием любых систем
+- Бот предназначен для образовательных и профессиональных целей
+
+## 🤝 Участие в разработке
+Приветствуются пул-реквесты и сообщения о проблемах. Перед внесением изменений:
+1. Форкните репозиторий
+2. Создайте ветку с вашими изменениями
+3. Отправьте пул-реквест
+
+## 📜 Лицензия
+MIT License. Подробности см. в файле LICENSE.
+
+---
+
+Разработано с ❤️ для сообщества специалистов по безопасности
+``` 
+
+Этот README.md содержит:
+1. Краткое описание проекта
+2. Инструкции по установке и настройке
+3. Описание функционала
+4. Примеры использования
+5. Структуру проекта
+6. Важные предупреждения
+7. Информацию для разработчиков
+8. Лицензию
+
+Вы можете дополнить его:
+- Скриншотами интерфейса
+- Более подробными примерами отчетов
+- Информацией о тестировании
+- Чек-листом для деплоя
+- Badges (статус сборки, покрытие кода и т.д.)
