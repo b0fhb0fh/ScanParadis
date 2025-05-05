@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 #
-# ScanParadis v1.20 (with hierarchical menu)
+# ScanParadis v2.1 with AI and Vulners
 #
 
 import telebot
@@ -11,6 +11,8 @@ from datetime import datetime
 import json
 import socket
 import os, sys
+import requests
+import math
 from telebot import util
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from openai import OpenAI
@@ -33,6 +35,11 @@ OPENAI_API_KEY = config.get("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = config.get("OPENAI_BASE_URL", "https://api.proxyapi.ru/deepseek")
 OPENAI_MODEL = config.get("OPENAI_MODEL", "deepseek-chat")
 SCAN_RESULTS_DIR = config.get("SCAN_RESULTS_DIR", "scanresults")
+EPSS_API_URL = config.get("EPSS_API_URL", "https://api.first.org/data/v1/epss")
+NVD_API_URL = config.get("NVD_API_URL", "https://services.nvd.nist.gov/rest/json/cves/2.0")
+EPSS_SIGNIFICANT_THRESHOLD = config.get("EPSS_SIGNIFICANT_THRESHOLD", 0.1)
+NMAP_TIMEOUT = config.get("NMAP_TIMEOUT", 600)
+ADVANCED_SCAN_TIMEOUT = config.get("ADVANCED_SCAN_TIMEOUT", 1200)
 
 # Создаем директорию для результатов сканирования, если ее нет
 os.makedirs(SCAN_RESULTS_DIR, exist_ok=True)
@@ -78,9 +85,10 @@ def create_scan_menu():
     
     btn1 = KeyboardButton('IPv4scan')
     btn2 = KeyboardButton('IPv6scan')
-    btn3 = KeyboardButton('Назад ↩️')
+    btn3 = KeyboardButton('Vulners')
+    btn4 = KeyboardButton('Назад ↩️')
     
-    markup.add(btn1, btn2, btn3)
+    markup.add(btn1, btn2, btn3, btn4)
     return markup
 
 # Меню Web
@@ -154,6 +162,10 @@ def handle_all_messages(message):
             bot.send_message(chat_id, "Укажите один IPv6 адрес или одно доменное имя в формате 2a00:1450:4026:804::2004 или www.example.com", 
                             reply_markup=ReplyKeyboardRemove())
             bot.register_next_step_handler(message, get_target_and_run, "nmap6")
+        elif message.text == 'Vulners':
+            bot.send_message(chat_id, "Укажите IP-адрес или домен для сканирования уязвимостей", 
+                            reply_markup=ReplyKeyboardRemove())
+            bot.register_next_step_handler(message, get_target_and_run, "vulners")
     
     # Обработка подменю Web
     elif menu_state.get(chat_id) == 'web':
@@ -203,6 +215,9 @@ def run_utils(message, proc):
     if proc == "zap":
         run_zap_scan(message)
         return
+    elif proc == "vulners":
+        run_vulners_scan(message)
+        return
     
     commands = {
         "nmap4": ["/usr/bin/nmap", "-sS", "-F", scan_target],
@@ -232,6 +247,155 @@ def run_utils(message, proc):
     print_log(message, scan_output)
     menu_state[message.chat.id] = 'main'
     bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
+
+def run_vulners_scan(message):
+    try:
+        # Генерируем уникальное имя файла
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_target = re.sub(r'[^a-zA-Z0-9]', '_', scan_target)[:50]
+        user_info = f"{message.from_user.id}_{message.from_user.username or 'unknown'}"
+        report_filename = f"vulners_{safe_target}_{user_info}_{timestamp}.txt"
+        report_path = os.path.join(SCAN_RESULTS_DIR, report_filename)
+
+        bot.send_message(message.chat.id, "🔍 Запускаю сканирование уязвимостей. Это может занять несколько минут...")
+        
+        # Первое сканирование - поиск открытых портов
+        nmap_cmd = ["nmap", "-sS", "--open", "-Pn", scan_target]
+        result = subprocess.run(nmap_cmd, capture_output=True, text=True, timeout=NMAP_TIMEOUT)
+        
+        if result.returncode != 0:
+            raise Exception(f"Nmap error: {result.stderr}")
+        
+        open_ports = parse_open_ports(result.stdout)
+        if not open_ports:
+            bot.send_message(message.chat.id, "🔒 Открытых портов не обнаружено")
+            menu_state[message.chat.id] = 'main'
+            bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
+            return
+        
+        bot.send_message(message.chat.id, f"📌 Найдены открытые порты: {', '.join(open_ports)}")
+        bot.send_message(message.chat.id, "🔬 Провожу углублённый анализ уязвимостей...")
+        
+        # Второе сканирование - анализ уязвимостей
+        nmap_cmd = [
+            "nmap", "-sS", "-p", ",".join(open_ports),
+            "-sV", "--script", "vulners", scan_target
+        ]
+        
+        result = subprocess.run(nmap_cmd, capture_output=True, text=True, timeout=ADVANCED_SCAN_TIMEOUT)
+        
+        if result.returncode != 0:
+            raise Exception(f"Nmap error: {result.stderr}")
+        
+        # Сохраняем полный отчет
+        with open(report_path, "w") as f:
+            f.write(result.stdout)
+        
+        # Анализируем уязвимости
+        cves = find_cves(result.stdout)
+        if not cves:
+            bot.send_message(message.chat.id, "✅ Уязвимости не обнаружены")
+        else:
+            risk_report = generate_risk_report(cves)
+            splitted_text = util.smart_split(risk_report, chars_per_string=3000)
+            for text in splitted_text:
+                bot.send_message(message.chat.id, text)
+        
+    except subprocess.TimeoutExpired:
+        error_msg = "Сканирование превысило лимит времени"
+        bot.send_message(message.chat.id, f"⚠️ {error_msg}")
+        print_log(message, f"Vulners scan timeout: {error_msg}")
+    except Exception as e:
+        error_msg = f"Ошибка сканирования: {str(e)}"
+        bot.send_message(message.chat.id, f"⚠️ {error_msg}")
+        print_log(message, f"Vulners scan failed: {error_msg}")
+    finally:
+        menu_state[message.chat.id] = 'main'
+        bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
+
+def parse_open_ports(nmap_output: str) -> list:
+    """Извлекает список открытых портов из вывода nmap"""
+    return list(set(re.findall(r'(\d+)/tcp\s+open', nmap_output)))
+
+def find_cves(nmap_output: str) -> list:
+    """Ищет CVE уязвимости в выводе nmap"""
+    return list(set(re.findall(r'CVE-\d{4}-\d{1,}', nmap_output)))
+
+def get_epss_score(cve: str) -> dict:
+    """Получает оценку EPSS для уязвимости через API"""
+    try:
+        response = requests.get(f"{EPSS_API_URL}?cve={cve}", timeout=10)
+        if response.status_code == 200:
+            data = response.json()['data'][0]
+            return {
+                'epss': float(data['epss']),
+                'percentile': float(data['percentile'])
+            }
+    except Exception as e:
+        print(f"EPSS request failed for {cve}: {str(e)}")
+    return {'epss': 0.0, 'percentile': 0.0}
+
+def get_cvss_data(cve: str) -> dict:
+    """Получает данные CVSS для уязвимости через NVD API"""
+    try:
+        response = requests.get(f"{NVD_API_URL}?cveId={cve}", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            vulnerabilities = data.get('vulnerabilities', [])
+            if vulnerabilities:
+                metrics = vulnerabilities[0]['cve'].get('metrics', {})
+                if 'cvssMetricV31' in metrics:
+                    cvss_metric = metrics['cvssMetricV31'][0]
+                    return {
+                        'version': '3.1',
+                        'baseScore': cvss_metric['cvssData']['baseScore'],
+                        'vector': cvss_metric['cvssData']['vectorString']
+                    }
+                elif 'cvssMetricV30' in metrics:
+                    cvss_metric = metrics['cvssMetricV30'][0]
+                    return {
+                        'version': '3.0',
+                        'baseScore': cvss_metric['cvssData']['baseScore'],
+                        'vector': cvss_metric['cvssData']['vectorString']
+                    }
+    except Exception as e:
+        print(f"NVD API request failed for {cve}: {str(e)}")
+    return {'version': 'N/A', 'baseScore': 'N/A', 'vector': 'N/A'}
+
+def generate_risk_report(cves: list) -> str:
+    """Генерирует текстовый отчет об оценке рисков"""
+    report = ["*Результаты анализа уязвимостей:*\n"]
+    total_multiplier = 1.0  # Множитель для расчета общего риска
+    vulnerabilities_data = []
+    
+    for cve in cves:
+        epss_data = get_epss_score(cve)
+        cvss_data = get_cvss_data(cve)
+        
+        vuln_info = (
+            f"• `{cve}`:\n"
+            f"  - CVSS {cvss_data['version']}: {cvss_data['baseScore']} ({cvss_data['vector']})\n"
+            f"  - EPSS: {epss_data['epss']:.4f}\n"
+            f"  - Percentile: {epss_data['percentile']:.2f}"
+        )
+        vulnerabilities_data.append(vuln_info)
+        
+        if epss_data['epss'] > EPSS_SIGNIFICANT_THRESHOLD:
+            risk_reduction = 1 - epss_data['epss']
+            total_multiplier *= risk_reduction
+    
+    report.append("\n".join(vulnerabilities_data))
+    
+    if total_multiplier == 1.0:
+        report.append("\n*Нет значимых уязвимостей для расчёта риска*")
+    else:
+        final_risk = 1 - total_multiplier
+        report.append(
+            f"\n*ОБЩИЙ РИСК ВЗЛОМА:* {final_risk:.2%}\n"
+            f"_Примечание: риск >50% требует немедленного внимания_"
+        )
+    
+    return "\n".join(report)
 
 def run_zap_scan(message):
     try:
@@ -292,6 +456,33 @@ def run_zap_scan(message):
         menu_state[message.chat.id] = 'main'
         bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
 
+def ask_ai(report_text):
+    """Генерация AI-отчета по результатам сканирования"""
+    try:
+        prompt = f"""
+Проанализируй этот отчет сканирования и предоставь структурированный отчет на русском языке.
+Выдели:
+1. Основные уязвимости с оценкой критичности (High/Medium/Low)
+2. Рекомендации по исправлению для каждой уязвимости
+3. Общую оценку безопасности
+
+Отчет должен быть понятным для технических специалистов.
+Вот данные для анализа:
+{report_text[:15000]}  # Ограничиваем размер для API
+"""
+        response = ai_client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": "Ты эксперт по кибербезопасности, который анализирует отчеты сканеров уязвимостей."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=3000
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ Ошибка при генерации AI-отчета: {str(e)}\n\nПолный отчет доступен в файле"
+
 def check_target_url(target):
     result = re.match(r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)', target)
     return bool(result)
@@ -316,7 +507,7 @@ def print_help(message):
     help_text = """
 <b>Главное меню:</b>
 <code>Recon 🕵️</code> - инструменты разведки (nslookup, whois)
-<code>Scan 🔍</code> - сканирование сетей (IPv4, IPv6)
+<code>Scan 🔍</code> - сканирование сетей (IPv4, IPv6, Vulners)
 <code>Web 🌐</code> - веб-инструменты (wafcheck, whatweb, ZAP)
 <code>Others 📚</code> - другие инструменты (creds)
 
