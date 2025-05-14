@@ -9,5 +9,7 @@
     "NVD_API_URL": "https://services.nvd.nist.gov/rest/json/cves/2.0",
     "EPSS_SIGNIFICANT_THRESHOLD": 0.1,
     "NMAP_TIMEOUT": 600,
+    "ZAP_TIMEOUT": 1800,
+    "NUCLEI_TIMEOUT": 1800,
     "ADVANCED_SCAN_TIMEOUT": 1200
 }

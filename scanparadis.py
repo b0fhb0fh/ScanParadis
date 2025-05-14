@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 #
-# ScanParadis v2.1 with AI and Vulners
+# ScanParadis v2.2 (with Nuclei)
 #
 
 import telebot
@@ -39,6 +39,8 @@ EPSS_API_URL = config.get("EPSS_API_URL", "https://api.first.org/data/v1/epss")
 NVD_API_URL = config.get("NVD_API_URL", "https://services.nvd.nist.gov/rest/json/cves/2.0")
 EPSS_SIGNIFICANT_THRESHOLD = config.get("EPSS_SIGNIFICANT_THRESHOLD", 0.1)
 NMAP_TIMEOUT = config.get("NMAP_TIMEOUT", 600)
+ZAP_TIMEOUT = config.get("ZAP_TIMEOUT", 1800)
+NUCLEI_TIMEOUT = config.get("NUCLEI_TIMEOUT", 1800)
 ADVANCED_SCAN_TIMEOUT = config.get("ADVANCED_SCAN_TIMEOUT", 1200)
 
 # Создаем директорию для результатов сканирования, если ее нет
@@ -98,9 +100,10 @@ def create_web_menu():
     btn1 = KeyboardButton('wafcheck')
     btn2 = KeyboardButton('whatweb')
     btn3 = KeyboardButton('ZAP')
-    btn4 = KeyboardButton('Назад ↩️')
+    btn4 = KeyboardButton('Nuclei')  
+    btn5 = KeyboardButton('Назад ↩️')
     
-    markup.add(btn1, btn2, btn3, btn4)
+    markup.add(btn1, btn2, btn3, btn4, btn5)
     return markup
 
 # Меню Others
@@ -181,7 +184,11 @@ def handle_all_messages(message):
             bot.send_message(chat_id, "Укажите url в формате https://www.example.com для сканирования ZAP", 
                             reply_markup=ReplyKeyboardRemove())
             bot.register_next_step_handler(message, get_target_and_run, "zap")
-    
+        elif message.text == 'Nuclei':
+            bot.send_message(chat_id, "Укажите URL для сканирования Nuclei (например: https://example.com)", 
+                            reply_markup=ReplyKeyboardRemove())
+            bot.register_next_step_handler(message, get_target_and_run, "nuclei")
+
     # Обработка подменю Others
     elif menu_state.get(chat_id) == 'others':
         if message.text == 'creds':
@@ -214,6 +221,9 @@ def run_utils(message, proc):
     
     if proc == "zap":
         run_zap_scan(message)
+        return
+    elif proc == "nuclei":  
+        run_nuclei_scan(message)
         return
     elif proc == "vulners":
         run_vulners_scan(message)
@@ -417,7 +427,7 @@ def run_zap_scan(message):
         ]
         
         process = subprocess.Popen(zap_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate()
+        stdout, stderr = process.communicate(timeout=ZAP_TIMEOUT)
         
         if process.returncode != 0:
             raise subprocess.CalledProcessError(process.returncode, zap_command, stderr)
@@ -452,6 +462,55 @@ def run_zap_scan(message):
         error_msg = f"Неожиданная ошибка: {str(e)}"
         bot.send_message(message.chat.id, error_msg)
         print_log(message, f"Unexpected error: {str(e)}")
+    finally:
+        menu_state[message.chat.id] = 'main'
+        bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
+
+def run_nuclei_scan(message):
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_url = re.sub(r'[^a-zA-Z0-9]', '_', scan_target)[:50]
+        user_info = f"{message.from_user.id}_{message.from_user.username or 'unknown'}"
+        report_filename = f"nuclei_{safe_url}_{user_info}_{timestamp}.json"
+        report_path = os.path.join(SCAN_RESULTS_DIR, report_filename)
+
+        bot.send_message(message.chat.id, "🔍 Запускаю Nuclei сканирование. Это может занять несколько минут...")
+        
+        nuclei_cmd = [
+            "nuclei",
+            "-target", scan_target,
+            "-t", "http/cves",
+            "-t", "ssl",
+            "-nc", 
+            "-json-export", report_path
+        ]
+        
+        process = subprocess.Popen(nuclei_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate(timeout=NUCLEI_TIMEOUT) 
+        
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, nuclei_cmd, stderr)
+        
+        # Читаем JSON отчет
+        with open(report_path, "r") as report_file:
+            nuclei_report = report_file.read()
+        
+        # Отправляем уведомление
+        bot.send_message(message.chat.id, f"✅ Nuclei сканирование завершено. Анализирую результаты...")
+        
+        # Генерируем AI отчет
+        ai_report = ask_ai(f"Nuclei scan report:\n{nuclei_report[:15000]}")
+        
+        # Отправляем частями
+        for text in util.smart_split(ai_report, chars_per_string=3000):
+            bot.send_message(message.chat.id, text)
+            
+    except subprocess.TimeoutExpired:
+        error_msg = "Nuclei сканирование превысило лимит времени (1 час)"
+        bot.send_message(message.chat.id, f"⚠️ {error_msg}")
+    except Exception as e:
+        error_msg = f"Ошибка Nuclei сканирования: {str(e)}"
+        bot.send_message(message.chat.id, f"⚠️ {error_msg}")
     finally:
         menu_state[message.chat.id] = 'main'
         bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
