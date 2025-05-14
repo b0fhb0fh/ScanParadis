@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 #
-# ScanParadis v2.1 with AI and Vulners
+# ScanParadis v2.2 (with Nuclei)
 #
 
 import telebot
