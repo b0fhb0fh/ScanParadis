@@ -42,6 +42,8 @@ NMAP_TIMEOUT = config.get("NMAP_TIMEOUT", 600)
 ZAP_TIMEOUT = config.get("ZAP_TIMEOUT", 1800)
 NUCLEI_TIMEOUT = config.get("NUCLEI_TIMEOUT", 1800)
 ADVANCED_SCAN_TIMEOUT = config.get("ADVANCED_SCAN_TIMEOUT", 1200)
+SOCKS5_PROXY = config.get("SOCKS5_PROXY", "socks5://127.0.0.1:9050")
+HTTP_PROXY = config.get("HTTP_PROXY", "http://127.0.0.1:8118")
 
 # Создаем директорию для результатов сканирования, если ее нет
 os.makedirs(SCAN_RESULTS_DIR, exist_ok=True)
@@ -98,10 +100,10 @@ def create_scan_menu():
 def create_web_menu():
     markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     
-    btn1 = KeyboardButton('wafcheck')
+    btn1 = KeyboardButton('wafcheck + tor')
     btn2 = KeyboardButton('whatweb')
     btn3 = KeyboardButton('ZAP')
-    btn4 = KeyboardButton('Nuclei')  
+    btn4 = KeyboardButton('Nuclei + tor')  
     btn5 = KeyboardButton('Назад ↩️')
     
     markup.add(btn1, btn2, btn3, btn4, btn5)
@@ -177,7 +179,7 @@ def handle_all_messages(message):
     
     # Обработка подменю Web
     elif menu_state.get(chat_id) == 'web':
-        if message.text == 'wafcheck':
+        if message.text == 'wafcheck + tor':
             bot.send_message(chat_id, "Укажите url в формате https://www.example.com", 
                             reply_markup=ReplyKeyboardRemove())
             bot.register_next_step_handler(message, get_target_and_run, "wafw00f")
@@ -189,7 +191,7 @@ def handle_all_messages(message):
             bot.send_message(chat_id, "Укажите url в формате https://www.example.com для сканирования ZAP", 
                             reply_markup=ReplyKeyboardRemove())
             bot.register_next_step_handler(message, get_target_and_run, "zap")
-        elif message.text == 'Nuclei':
+        elif message.text == 'Nuclei + tor':
             bot.send_message(chat_id, "Укажите URL для сканирования Nuclei (например: https://example.com)", 
                             reply_markup=ReplyKeyboardRemove())
             bot.register_next_step_handler(message, get_target_and_run, "nuclei")
@@ -237,7 +239,7 @@ def run_utils(message, proc):
     commands = {
         "nmap4": ["/usr/bin/nmap", "-sS", "-F", scan_target],
         "nmap6": ["/usr/bin/nmap", "-sS", "-F", "-6", scan_target],
-        "wafw00f": ["wafw00f", "-a", scan_target],
+        "wafw00f": ["wafw00f", "-p", SOCKS5_PROXY,  "-a", scan_target],
         "whatweb": ["whatweb", "--color=never", scan_target],
         "nslookup": ["host", scan_target],
         "whois": ["whois", scan_target],
@@ -488,7 +490,8 @@ def run_nuclei_scan(message):
             "-t", "http/cves",
             "-t", "ssl",
             "-nc", 
-            "-json-export", report_path
+            "-json-export", report_path,
+            "-p", SOCKS5_PROXY
         ]
         
         process = subprocess.Popen(nuclei_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
