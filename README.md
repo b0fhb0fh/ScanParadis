@@ -1,5 +1,5 @@
 
-# ScanParadis v2.2 - Telegram Bot for Security Scanning
+# ScanParadis v2.3 - Telegram Bot for Security Scanning
 
 ## 📌 Описание
 
