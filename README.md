@@ -7,7 +7,7 @@ ScanParadis - это многофункциональный Telegram бот дл
 
 ## 🌟 Основные возможности
 
-- **Recon**: Инструменты разведки (nslookup, whois)
+- **Recon**: Инструменты разведки (nslookup, whois, subfinder)
 - **Scan**: Сканирование сетей (IPv4, IPv6, Vulners)
 - **Web**: Анализ веб-приложений (wafcheck, whatweb, ZAP, nuclei)
 - **Others**: Дополнительные инструменты (creds)
@@ -19,8 +19,10 @@ ScanParadis - это многофункциональный Telegram бот дл
 - Установленные зависимости: `pip install -r requirements.txt`
 - Доступ к API OpenAI (для AI-анализа)
 - Java (для работы ZAP)
-- Nmap с установленным скриптом vulners
+- Nmap с установленным скриптом vulners (`apt install nmap`)
 - Nuclei v3.4+ (`go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest`)
+- subfinder v2.7+ (`go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest`)
+- ZAP v2.16+ (`https://www.zaproxy.org/download/`)
 
 ### Установка
 1. Клонируйте репозиторий:

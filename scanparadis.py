@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 #
-# ScanParadis v2.2 (with Nuclei)
+# ScanParadis v2.3 (with subfinder)
 #
 
 import telebot
@@ -76,9 +76,10 @@ def create_recon_menu():
     
     btn1 = KeyboardButton('nslookup')
     btn2 = KeyboardButton('whois')
-    btn3 = KeyboardButton('Назад ↩️')
+    btn3 = KeyboardButton('subfinder')
+    btn4 = KeyboardButton('Назад ↩️')
     
-    markup.add(btn1, btn2, btn3)
+    markup.add(btn1, btn2, btn3, btn4)
     return markup
 
 # Меню Scan
@@ -154,6 +155,10 @@ def handle_all_messages(message):
             bot.send_message(chat_id, "Укажите ip-адрес в формате 1.1.1.1 или 2a00:1450:4026:804::2004", 
                             reply_markup=ReplyKeyboardRemove())
             bot.register_next_step_handler(message, get_target_and_run, "whois")
+        elif message.text == 'subfinder':
+            bot.send_message(chat_id, "Укажите доменное имя в формате example.com", 
+                            reply_markup=ReplyKeyboardRemove())
+            bot.register_next_step_handler(message, get_target_and_run, "subfinder")
     
     # Обработка подменю Scan
     elif menu_state.get(chat_id) == 'scan':
@@ -236,6 +241,7 @@ def run_utils(message, proc):
         "whatweb": ["whatweb", "--color=never", scan_target],
         "nslookup": ["host", scan_target],
         "whois": ["whois", scan_target],
+        "subfinder": ["subfinder", "-silent", "-nc", "-d", scan_target],
         "creds": ["/opt/DefaultCreds-cheat-sheet/creds", "search", scan_target]
     }
     
@@ -565,9 +571,9 @@ def check_ip(addr):
 def print_help(message):
     help_text = """
 <b>Главное меню:</b>
-<code>Recon 🕵️</code> - инструменты разведки (nslookup, whois)
+<code>Recon 🕵️</code> - инструменты разведки (nslookup, whois, subfinder)
 <code>Scan 🔍</code> - сканирование сетей (IPv4, IPv6, Vulners)
-<code>Web 🌐</code> - веб-инструменты (wafcheck, whatweb, ZAP)
+<code>Web 🌐</code> - веб-инструменты (wafcheck, whatweb, ZAP, nuclei)
 <code>Others 📚</code> - другие инструменты (creds)
 
 <b>Инструкция:</b>
