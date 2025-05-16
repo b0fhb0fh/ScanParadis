@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 #
-# ScanParadis v2.3 (with subfinder)
+# ScanParadis v2.4 (with tor)
 #
 
 import telebot
