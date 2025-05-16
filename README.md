@@ -1,5 +1,5 @@
 
-# ScanParadis v2.3 - Telegram Bot for Security Scanning
+# ScanParadis v2.4 - Telegram Bot for Security Scanning
 
 ## 📌 Описание
 
@@ -9,7 +9,7 @@ ScanParadis - это многофункциональный Telegram бот дл
 
 - **Recon**: Инструменты разведки (nslookup, whois, subfinder)
 - **Scan**: Сканирование сетей (IPv4, IPv6, Vulners)
-- **Web**: Анализ веб-приложений (wafcheck, whatweb, ZAP, nuclei)
+- **Web**: Анализ веб-приложений (wafcheck (через tor), whatweb, ZAP, nuclei (через tor))
 - **Others**: Дополнительные инструменты (creds)
 
 ## 🔧 Установка и настройка
