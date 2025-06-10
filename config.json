@@ -13,5 +13,6 @@
     "NUCLEI_TIMEOUT": 1800,
     "ADVANCED_SCAN_TIMEOUT": 1200,
     "SOCKS5_PROXY": "socks5://127.0.0.1:9050",
-    "HTTP_PROXY": "http://127.0.0.1:8118"
+    "HTTP_PROXY": "http://127.0.0.1:8118",
+    "SEARCH_VULNS_SCRIPT": "/opt/search_vulns/search_vulns.py"
 }

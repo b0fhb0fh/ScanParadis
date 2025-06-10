@@ -1,5 +1,5 @@
 
-# ScanParadis v2.4 - Telegram Bot for Security Scanning
+# ScanParadis v2.5 - Telegram Bot for Security Scanning
 
 ## 📌 Описание
 
@@ -12,6 +12,11 @@ ScanParadis - это многофункциональный Telegram бот дл
 - **Web**: Анализ веб-приложений (wafcheck (через tor), whatweb, ZAP, nuclei (через tor))
 - **Others**: Дополнительные инструменты (creds)
 
+## 🔥 Новое в v2.5
+- Добавлен **поиск уязвимостей ПО** в разделе Others
+- Интеграция с ИИ для перевода и структурирования результатов
+- Безопасная обработка пользовательского ввода
+
 ## 🔧 Установка и настройка
 
 ### Требования
@@ -23,6 +28,7 @@ ScanParadis - это многофункциональный Telegram бот дл
 - Nuclei v3.4+ (`go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest`)
 - subfinder v2.7+ (`go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest`)
 - ZAP v2.16+ (`https://www.zaproxy.org/download/`)
+- search_vulns (`https://github.com/ra1nb0rn/search_vulns`)
 
 ### Установка
 1. Клонируйте репозиторий:
@@ -39,19 +45,22 @@ ScanParadis - это многофункциональный Telegram бот дл
 3. Настройте конфигурацию в файле `config.json`:
    ```json
    {
-       "TELEGRAM_BOT_TOKEN": "ваш_токен_бота",
-       "ZAP_PATH": "/путь/к/zap-2.16.1.jar",
-       "OPENAI_API_KEY": "ваш_api_key",
-       "OPENAI_BASE_URL": "https://api.proxyapi.ru/deepseek",
-       "OPENAI_MODEL": "deepseek-chat",
-       "SCAN_RESULTS_DIR": "scanresults",
-       "EPSS_API_URL": "https://api.first.org/data/v1/epss",
-       "NVD_API_URL": "https://services.nvd.nist.gov/rest/json/cves/2.0",
-       "EPSS_SIGNIFICANT_THRESHOLD": 0.1,
-       "NMAP_TIMEOUT": 600,
-       "ZAP_TIMEOUT": 1800,
-       "NUCLEI_TIMEOUT": 1800,
-       "ADVANCED_SCAN_TIMEOUT": 1200
+      "TELEGRAM_BOT_TOKEN": "YOUR_TELEGRAM_BOT_TOKEN",
+      "ZAP_PATH": "/opt/ZAP_2.16.1/zap-2.16.1.jar",
+      "OPENAI_API_KEY": "YOUR_OPENAI_API_KEY",
+      "OPENAI_BASE_URL": "https://api.proxyapi.ru/deepseek",
+      "OPENAI_MODEL": "deepseek-chat",
+      "SCAN_RESULTS_DIR": "scanresults",
+      "EPSS_API_URL": "https://api.first.org/data/v1/epss",
+      "NVD_API_URL": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+      "EPSS_SIGNIFICANT_THRESHOLD": 0.1,
+      "NMAP_TIMEOUT": 600,
+      "ZAP_TIMEOUT": 1800,
+      "NUCLEI_TIMEOUT": 1800,
+      "ADVANCED_SCAN_TIMEOUT": 1200,
+      "SOCKS5_PROXY": "socks5://127.0.0.1:9050",
+      "HTTP_PROXY": "http://127.0.0.1:8118",
+      "SEARCH_VULNS_SCRIPT": "/opt/search_vulns/search_vulns.py"
    }
    ```
 
@@ -91,6 +100,16 @@ python3 bot.py
    - Выберите "Others 📚" → "creds"
    - Введите название вендора или ПО
    - Получите информацию о стандартных учетных данных
+4. **Пример использования поиска уязвимостей**:
+   - Выберите `Others` → `search_vulns`
+   - Введите название ПО и версию:
+       - `Apache 2.4.55`
+       - `WordPress 6.4.2`
+   - Получите:
+       - Список CVE уязвимостей
+       - AI-анализ на русском языке
+       - Рекомендации по обновлению
+
 
 ## 📁 Структура проекта
 ```
@@ -114,7 +133,7 @@ scanparadis/
 3. Отправьте пул-реквест
 
 ## 📜 Лицензия
-MIT License. Подробности см. в файле LICENSE.
+MIT License. 
 
 ---
 
