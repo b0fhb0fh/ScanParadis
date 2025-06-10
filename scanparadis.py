@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 #
-# ScanParadis v2.4 (with tor)
+# ScanParadis v2.5 (with search_vulns)
 #
 
 import telebot
@@ -44,6 +44,8 @@ NUCLEI_TIMEOUT = config.get("NUCLEI_TIMEOUT", 1800)
 ADVANCED_SCAN_TIMEOUT = config.get("ADVANCED_SCAN_TIMEOUT", 1200)
 SOCKS5_PROXY = config.get("SOCKS5_PROXY", "socks5://127.0.0.1:9050")
 HTTP_PROXY = config.get("HTTP_PROXY", "http://127.0.0.1:8118")
+SEARCH_VULNS_SCRIPT = config.get("SEARCH_VULNS_SCRIPT", "/opt/search_vulns/search_vulns.py")
+        
 
 # Создаем директорию для результатов сканирования, если ее нет
 os.makedirs(SCAN_RESULTS_DIR, exist_ok=True)
@@ -114,9 +116,10 @@ def create_others_menu():
     markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     
     btn1 = KeyboardButton('creds')
-    btn2 = KeyboardButton('Назад ↩️')
+    btn2 = KeyboardButton('search_vulns')  # Новая кнопка
+    btn3 = KeyboardButton('Назад ↩️')
     
-    markup.add(btn1, btn2)
+    markup.add(btn1, btn2, btn3)
     return markup
 
 @bot.message_handler(commands=['start', 'help'])
@@ -202,6 +205,10 @@ def handle_all_messages(message):
             bot.send_message(chat_id, "Укажите наименование вендора или ПО", 
                             reply_markup=ReplyKeyboardRemove())
             bot.register_next_step_handler(message, get_target_and_run, "creds")
+        elif message.text == 'search_vulns':  # Новый обработчик
+            bot.send_message(chat_id, "Укажите название ПО и версию (например: Apache 2.4.55)", 
+                        reply_markup=ReplyKeyboardRemove())
+            bot.register_next_step_handler(message, get_target_and_run, "search_vulns")
     
     # Обработка команды /help
     elif message.text == '/help':
@@ -216,7 +223,7 @@ def get_target_and_run(message, proc="nslookup"):
     # remove RCE tail and network mask  
     scan_target = message.text.strip().split(";")[0].split("|")[0].split("&")[0]
 
-    if (check_target_ip_or_domain(scan_target) or check_target_url(scan_target) or proc == "creds"):
+    if (check_target_ip_or_domain(scan_target) or check_target_url(scan_target) or proc == "creds" or proc == "search_vulns"):
         run_utils(message, proc)
     else:
         bot.send_message(message.chat.id, "Указан некорректный адрес. Попробуйте еще раз.", 
@@ -234,6 +241,9 @@ def run_utils(message, proc):
         return
     elif proc == "vulners":
         run_vulners_scan(message)
+        return
+    elif proc == "search_vulns":  
+        run_search_vulns(message)
         return
     
     commands = {
@@ -266,6 +276,53 @@ def run_utils(message, proc):
     menu_state[message.chat.id] = 'main'
     bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
 
+def run_search_vulns(message):
+    try:
+        # Очищаем ввод от опасных символов
+        safe_query = re.sub(r'[;&|<>$`]', '', scan_target)
+        if not safe_query:
+            raise ValueError("Пустой запрос после очистки")
+        
+        bot.send_message(message.chat.id, f"🔍 Ищу уязвимости для: {safe_query}")
+         
+        # Формируем команду
+        cmd = ["python3", SEARCH_VULNS_SCRIPT, "-q", safe_query]
+        
+        # Выполняем скрипт
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120  # 2 минуты на выполнение
+        )
+        
+        if result.returncode != 0:
+            raise Exception(f"Ошибка скрипта: {result.stderr}")
+        
+        output = result.stdout.strip()
+        
+        if not output:
+            bot.send_message(message.chat.id, "ℹ️ Уязвимостей не найдено")
+            return
+            
+        # Если найдены CVE - отправляем на анализ ИИ
+        if "CVE-" in output:
+            ai_report = ask_ai(
+                f"Переведи на русский и структурируй информацию об уязвимостях:\n{output}"
+            )
+            splitted_text = util.smart_split(ai_report, chars_per_string=3000)
+            for text in splitted_text:
+                bot.send_message(message.chat.id, text)
+        else:
+            bot.send_message(message.chat.id, f"ℹ️ Результат:\n{output}")
+            
+    except Exception as e:
+        error_msg = f"Ошибка поиска уязвимостей: {str(e)}"
+        bot.send_message(message.chat.id, error_msg)
+    finally:
+        menu_state[message.chat.id] = 'main'
+        bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
+        
 def run_vulners_scan(message):
     try:
         # Генерируем уникальное имя файла
@@ -577,7 +634,7 @@ def print_help(message):
 <code>Recon 🕵️</code> - инструменты разведки (nslookup, whois, subfinder)
 <code>Scan 🔍</code> - сканирование сетей (IPv4, IPv6, Vulners)
 <code>Web 🌐</code> - веб-инструменты (wafcheck, whatweb, ZAP, nuclei)
-<code>Others 📚</code> - другие инструменты (creds)
+<code>Others 📚</code> - другие инструменты (creds, search_vulns)
 
 <b>Инструкция:</b>
 1. Выберите категорию инструмента
