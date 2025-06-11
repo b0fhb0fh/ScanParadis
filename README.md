@@ -35,6 +35,7 @@ ScanParadis - это многофункциональный Telegram бот дл
 - subfinder v2.7+ (`go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest`)
 - ZAP v2.16+ (`https://www.zaproxy.org/download/`)
 - search_vulns (`https://github.com/ra1nb0rn/search_vulns`)
+- wapiti (pip install wapiti3)
 
 ### Установка
 1. Клонируйте репозиторий:
