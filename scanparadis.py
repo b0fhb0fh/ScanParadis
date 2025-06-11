@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 #
-# ScanParadis v2.5 (with search_vulns)
+# ScanParadis v2.6 with Advanced Web Scanning
 #
 
 import telebot
@@ -41,6 +41,7 @@ EPSS_SIGNIFICANT_THRESHOLD = config.get("EPSS_SIGNIFICANT_THRESHOLD", 0.1)
 NMAP_TIMEOUT = config.get("NMAP_TIMEOUT", 600)
 ZAP_TIMEOUT = config.get("ZAP_TIMEOUT", 1800)
 NUCLEI_TIMEOUT = config.get("NUCLEI_TIMEOUT", 1800)
+WAPITI_TIMEOUT = config.get("WAPITI_TIMEOUT", 1800)
 ADVANCED_SCAN_TIMEOUT = config.get("ADVANCED_SCAN_TIMEOUT", 1200)
 SOCKS5_PROXY = config.get("SOCKS5_PROXY", "socks5://127.0.0.1:9050")
 HTTP_PROXY = config.get("HTTP_PROXY", "http://127.0.0.1:8118")
@@ -106,9 +107,10 @@ def create_web_menu():
     btn2 = KeyboardButton('whatweb')
     btn3 = KeyboardButton('ZAP')
     btn4 = KeyboardButton('Nuclei + tor')  
-    btn5 = KeyboardButton('Назад ↩️')
+    btn5 = KeyboardButton('wapiti + tor')  
+    btn6 = KeyboardButton('Назад ↩️')
     
-    markup.add(btn1, btn2, btn3, btn4, btn5)
+    markup.add(btn1, btn2, btn3, btn4, btn5, btn6)
     return markup
 
 # Меню Others
@@ -198,6 +200,10 @@ def handle_all_messages(message):
             bot.send_message(chat_id, "Укажите URL для сканирования Nuclei (например: https://example.com)", 
                             reply_markup=ReplyKeyboardRemove())
             bot.register_next_step_handler(message, get_target_and_run, "nuclei")
+        elif message.text == 'wapiti + tor':
+            bot.send_message(chat_id, "Укажите URL для сканирования Wapiti (например: http://example.com)", 
+                            reply_markup=ReplyKeyboardRemove())
+            bot.register_next_step_handler(message, get_target_and_run, "wapiti")
 
     # Обработка подменю Others
     elif menu_state.get(chat_id) == 'others':
@@ -238,6 +244,9 @@ def run_utils(message, proc):
         return
     elif proc == "nuclei":  
         run_nuclei_scan(message)
+        return
+    elif proc == "wapiti":  
+        run_wapiti_scan(message)
         return
     elif proc == "vulners":
         run_vulners_scan(message)
@@ -323,6 +332,75 @@ def run_search_vulns(message):
         menu_state[message.chat.id] = 'main'
         bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
         
+def run_wapiti_scan(message):
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_url = re.sub(r'[^a-zA-Z0-9]', '_', scan_target)[:50]
+        user_info = f"{message.from_user.id}_{message.from_user.username or 'unknown'}"
+        report_filename = f"wapiti_{safe_url}_{user_info}_{timestamp}.json"
+        report_path = os.path.join(SCAN_RESULTS_DIR, report_filename)
+
+        bot.send_message(message.chat.id, "🔍 Запускаю Wapiti через Tor. Это может занять 15-30 минут...")
+        
+        wapiti_cmd = [
+            "wapiti",
+            "--tor",
+            "-u", scan_target,
+            "-f", "json",
+            "-o", report_path
+        ]
+        
+        process = subprocess.Popen(wapiti_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate(timeout=WAPITI_TIMEOUT) 
+        
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, wapiti_cmd, stderr)
+        
+        # Читаем JSON отчет
+        with open(report_path, "r") as report_file:
+            wapiti_report = json.load(report_file)
+        
+        # Извлекаем нужные разделы
+        selected_data = {
+            "vulnerabilities": wapiti_report.get("vulnerabilities", {}),
+            "anomalies": wapiti_report.get("anomalies", {}),
+            "additionals": wapiti_report.get("additionals", {}),
+            "infos": wapiti_report.get("infos", {})
+        }
+        
+        if not any(selected_data.values()):
+            bot.send_message(message.chat.id, "ℹ️ Проблем безопасности не обнаружено")
+            return
+        
+        # Конвертируем в строку для ИИ
+        raw_data_str = json.dumps(selected_data, ensure_ascii=False, indent=2)
+        
+        # Отправляем на анализ ИИ
+        bot.send_message(message.chat.id, "🔎 Анализирую результаты сканирования...")
+        ai_report = ask_ai(
+            "Проанализируй отчет Wapiti и составь структурированный отчет на русском языке. "
+            "Отчет должен содержать:\n"
+            "1. Тип каждой проблемы\n"
+            "2. Описание\n"
+            "3. Уровень критичности\n"
+            "4. Рекомендации по устранению\n\n"
+            "Исходные данные:\n" + raw_data_str[:15000]
+        )
+        
+        # Отправляем частями
+        for text in util.smart_split(ai_report, chars_per_string=3000):
+            bot.send_message(message.chat.id, text)
+            
+    except subprocess.TimeoutExpired:
+        error_msg = "Сканирование Wapiti превысило лимит времени"
+        bot.send_message(message.chat.id, f"⚠️ {error_msg}")
+    except Exception as e:
+        error_msg = f"Ошибка сканирования Wapiti: {str(e)}"
+        bot.send_message(message.chat.id, f"⚠️ {error_msg}")
+    finally:
+        menu_state[message.chat.id] = 'main'
+        bot.send_message(message.chat.id, "Выберите следующий инструмент:", reply_markup=create_main_menu())
+
 def run_vulners_scan(message):
     try:
         # Генерируем уникальное имя файла
@@ -633,7 +711,7 @@ def print_help(message):
 <b>Главное меню:</b>
 <code>Recon 🕵️</code> - инструменты разведки (nslookup, whois, subfinder)
 <code>Scan 🔍</code> - сканирование сетей (IPv4, IPv6, Vulners)
-<code>Web 🌐</code> - веб-инструменты (wafcheck, whatweb, ZAP, nuclei)
+<code>Web 🌐</code> - веб-инструменты (wafcheck, whatweb, ZAP, nuclei, wapiti)
 <code>Others 📚</code> - другие инструменты (creds, search_vulns)
 
 <b>Инструкция:</b>
